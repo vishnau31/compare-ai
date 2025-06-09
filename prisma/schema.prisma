@@ -1,0 +1,107 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Prompt {
+  id        String     @id @default(uuid())
+  content   String
+  createdAt DateTime   @default(now())
+  responses Response[]
+}
+
+model Response {
+  id        String   @id @default(uuid())
+  promptId  String
+  prompt    Prompt   @relation(fields: [promptId], references: [id])
+  model     String   // e.g., "gpt4", "claude3", "xai"
+  provider  String   // e.g., "openai", "anthropic", "xai"
+  content   String
+  metrics   Metrics?
+  createdAt DateTime @default(now())
+}
+
+model Metrics {
+  id              String   @id @default(uuid())
+  responseId      String   @unique
+  response        Response @relation(fields: [responseId], references: [id])
+  promptTokens    Int
+  completionTokens Int
+  totalTokens     Int
+  latencyMs       Int
+  cost           Float
+  createdAt      DateTime @default(now())
+}
+
+model Comparison {
+  id        String   @id @default(cuid())
+  prompt    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Responses from each model
+  responses ModelResponse[]
+
+  // Performance metrics
+  metrics ComparisonMetrics?
+}
+
+model ModelResponse {
+  id            String   @id @default(cuid())
+  comparisonId  String
+  modelName     String   // e.g., "GPT-4", "Claude 3", "xAI"
+  content       String
+  createdAt     DateTime @default(now())
+  
+  // Performance metrics for this specific model
+  metrics       ResponseMetrics?
+
+  // Relation to parent comparison
+  comparison    Comparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+
+  @@index([comparisonId])
+  @@index([modelName])
+}
+
+model ResponseMetrics {
+  id            String   @id @default(cuid())
+  responseId    String   @unique
+  promptTokens  Int
+  completionTokens Int
+  totalTokens   Int
+  latencyMs     Int
+  cost          Float
+  
+  // Relation to parent response
+  response      ModelResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+}
+
+model ComparisonMetrics {
+  id            String   @id @default(cuid())
+  comparisonId  String   @unique
+  totalLatencyMs Int
+  totalCost     Float
+  fastestModel  String
+  mostCostEffectiveModel String
+  
+  // Relation to parent comparison
+  comparison    Comparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+}

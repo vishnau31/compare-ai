@@ -1,103 +1,122 @@
-import Image from "next/image";
+'use client';
+
+import React, { useState } from 'react';
+import TopBar from '@/components/TopBar';
+import ResponsePane from '@/components/ResponsePane';
+import PromptInput from '@/components/PromptInput';
+
+interface ComparisonResponse {
+  promptId: string;
+  responses: Array<{
+    status: 'fulfilled' | 'rejected';
+    data: {
+      provider: string;
+      model: string;
+      content: string;
+      metrics: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+        latencyMs: number;
+        cost: number;
+      };
+    } | null;
+    error: Error | null;
+  }>;
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [comparison, setComparison] = useState<ComparisonResponse | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handlePromptSubmit = async (prompt: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/compare', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get AI responses');
+      }
+
+      const data = await response.json();
+      setComparison(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getProviderResponse = (providerName: string) => {
+    if (!comparison) return null;
+    return comparison.responses.find(
+      (r) => r.data?.provider === providerName
+    );
+  };
+
+  return (
+    <main className="min-h-screen flex flex-col bg-gray-50">
+      <TopBar />
+      <PromptInput onSubmit={handlePromptSubmit} />
+      
+      {error && (
+        <div className="w-full bg-red-50 text-red-600 px-4 py-2 text-center">
+          {error}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      )}
+      
+      <div className="flex-1 flex flex-col md:flex-row p-4 gap-4">
+        <ResponsePane
+          modelName="GPT-4"
+          provider="OpenAI"
+          response={getProviderResponse('openai')?.data?.content ?? ''}
+          metrics={getProviderResponse('openai')?.data?.metrics ?? {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            latencyMs: 0,
+            cost: 0,
+          }}
+          isLoading={isLoading}
+        />
+        
+        <ResponsePane
+          modelName="Claude 3"
+          provider="Anthropic"
+          response={getProviderResponse('anthropic')?.data?.content ?? ''}
+          metrics={getProviderResponse('anthropic')?.data?.metrics ?? {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            latencyMs: 0,
+            cost: 0,
+          }}
+          isLoading={isLoading}
+        />
+        
+        <ResponsePane
+          modelName="XAI Model"
+          provider="XAI"
+          response={getProviderResponse('xai')?.data?.content ?? ''}
+          metrics={getProviderResponse('xai')?.data?.metrics ?? {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            latencyMs: 0,
+            cost: 0,
+          }}
+          isLoading={isLoading}
+        />
+      </div>
+    </main>
   );
 }
